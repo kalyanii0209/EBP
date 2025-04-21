@@ -1,13 +1,11 @@
 from django.shortcuts import render, HttpResponseRedirect
 from django.contrib.auth.hashers import make_password, check_password
 from mlxtend.frequent_patterns import apriori
-from pymongo import MongoClient, errors
+from pymongo import MongoClient
 from django.utils.timezone import now
 import pandas as pd
-import json
 import base64
 from io import BytesIO
-from django.http import JsonResponse
 client = MongoClient("mongodb+srv://EBP_User:kp0209@ebp-db.bjfc8.mongodb.net/?retryWrites=true&w=majority&appName=EBP-DB")
 db = client['User_DATA']
 username=""
@@ -113,7 +111,7 @@ def preprocess_data():
         frequent_itemsets = apriori(appliance_matrix, min_support=0.1, use_colnames=True)
         #rules = association_rules(frequent_itemsets, metric="lift", min_threshold=0)
         rules=0
-        return rules, main_data_df
+        return rules, main_data_df, frequent_itemsets
     except Exception as e:
         print("Data preprocessing error:", e)
         return None, None
@@ -137,7 +135,7 @@ def home(request):
                 'message': 'Please add your appliances in the setup page.',
                 'season': season
             })
-        rules, main_data_df = preprocess_data()
+        rules, main_data_df, frequent_itemsets = preprocess_data()
         # print(*rules)
         if main_data_df is None:
             return render(request, 'home.html', {'error': 'Data processing failed'})
@@ -161,6 +159,7 @@ def home(request):
         image_png = buffer.getvalue()
         buffer.close()
         image_base64 = base64.b64encode(image_png).decode('utf-8')
+        print(image_base64)
         plt.close()
         fig, ax = plt.subplots()
         appliance_names = [appliance['name'] for appliance in appliances]
@@ -177,6 +176,7 @@ def home(request):
         buffer.close()
         image_base64_1 = base64.b64encode(image_png).decode('utf-8')
         plt.close()
+        print(frequent_itemsets)
         return render(request, 'home.html', {
             'username': username,
             'email': user.get('email', ''),
@@ -221,11 +221,11 @@ def calculate_total_bill(appliances, main_data_df, season):
     total_bill = calculate_indian_bill(total_kwh)
     return round(total_bill, 2), price_distribution
 def get_season(month):
-    if month in [11, 12, 1]:
+    if month in [11, 12, 1, 2]:
         return 'Winter'
-    elif month in [5, 6, 7]:
+    elif month in [3, 4, 5, 6]:
         return 'Summer'
-    elif month in [8, 9, 10]:
+    elif month in [7, 8, 9, 10]:
         return 'Monsoon'
     else:
         return 'Year-round'
